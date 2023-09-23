@@ -35,16 +35,6 @@ protobuf {
     }
 }
 
-tasks.register('runGreetingServer', JavaExec) {
-    main = 'com.grpc.greeting.GreetingServer'
-    classpath = sourceSets.main.runtimeClasspath
-}
-
-tasks.register('runGreetingClient', JavaExec) {
-    main = 'com.grpc.greeting.GreetingClient'
-    classpath = sourceSets.main.runtimeClasspath
-}
-
 tasks.register('runChatServer', JavaExec) {
     main = 'com.grpc.chatroom.ChatRoomServer'
     classpath = sourceSets.main.runtimeClasspath

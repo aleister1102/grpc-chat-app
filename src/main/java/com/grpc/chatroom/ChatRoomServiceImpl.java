@@ -5,24 +5,39 @@ import com.google.protobuf.Empty;
 import grpc.chatroom.server.*;
 import io.grpc.stub.StreamObserver;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
-
   private final List<User> users = new ArrayList<>();
-  private static final LinkedHashSet<StreamObserver<ChatMessageFromServer>> observers = new LinkedHashSet<>();
+  private static final Map<String, StreamObserver<ChatMessageFromServer>> observers = new ConcurrentHashMap<>();
+
+  private boolean isUsernameExisted(String username) {
+    for (User user : users) {
+      if (user.getName().equals(username)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   @Override
   public void join(User user, StreamObserver<JoinResponse> responseObserver) {
-    System.out.println("Request user: " + user);
+    String username = user.getName();
+    System.out.println("A new user is joining: " + username);
 
-    users.add(user);
+    JoinResponse.Builder joinResponseBuilder = JoinResponse.newBuilder();
+    JoinResponse joinResponse;
 
-    JoinResponse joinResponse = JoinResponse.newBuilder()
-            .setMessage("Add user successfully!")
-            .build();
+    // Check if the username is already existed
+    if (isUsernameExisted(username)) {
+      String failedJoinMessage = "Join the chat room failed because the username is already existed!";
+      joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.NAME_TAKEN).setMessage(failedJoinMessage).build();
+    } else {
+      String succeedJoinMessage = "Join the chat room successfully!";
+      joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.OK).setMessage(succeedJoinMessage).build();
+      users.add(user);
+    }
 
     responseObserver.onNext(joinResponse);
     responseObserver.onCompleted();
@@ -40,31 +55,37 @@ public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
   @Override
   public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessageFromServer> responseObserver) {
-    observers.add(responseObserver);
     return new StreamObserver<ChatMessage>() {
+      private String username;
+
       @Override
       public void onNext(ChatMessage chatMessage) {
-        // Receive the message from the client
-        System.out.println(chatMessage);
+        observers.putIfAbsent(chatMessage.getSender().getName(), responseObserver);
 
+        System.out.println("Current observers: ");
+        for (var observer : observers.entrySet()) {
+          System.out.println(observer.getKey());
+        }
+
+        ChatRoomUtil.logChatMessage(chatMessage);
         ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
-                .setMessage(chatMessage)
+                .setMessageFromServer(chatMessage)
                 .build();
 
         // Broadcast the message
-        observers.forEach(o -> {
-          o.onNext(messageFromServer);
-        });
+        for (var observer : observers.entrySet()) {
+          observer.getValue().onNext(messageFromServer);
+        }
       }
 
       @Override
       public void onError(Throwable t) {
-        observers.remove(responseObserver);
+        observers.remove(username);
       }
 
       @Override
       public void onCompleted() {
-        observers.remove(responseObserver);
+        observers.remove(username);
       }
     };
   }

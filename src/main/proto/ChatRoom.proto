@@ -7,27 +7,13 @@ option java_multiple_files = true;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
-enum UserStatus {
-  OFFLINE = 0;
-  ONLINE = 1;
+enum JoinResponseCode {
+  OK = 0;
+  NAME_TAKEN = 1;
 }
 
 message User {
-  string id = 1;
-  string name = 2;
-  UserStatus status = 3;
-}
-
-
-message ChatMessage {
-  string from = 1;
-  string message = 2;
-  uint32 likeCount = 3;
-}
-
-message ChatMessageFromServer {
-  google.protobuf.Timestamp timestamp = 1;
-  ChatMessage message = 2;
+  string name = 1;
 }
 
 message UserList {
@@ -35,7 +21,20 @@ message UserList {
 }
 
 message JoinResponse {
-  string message = 1;
+  JoinResponseCode responseCode = 1;
+  string message = 2;
+
+}
+
+message ChatMessage {
+  User sender = 1;
+  string message = 2;
+  uint32 likeCount = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+message ChatMessageFromServer {
+  ChatMessage messageFromServer = 1;
 }
 
 service ChatService {
