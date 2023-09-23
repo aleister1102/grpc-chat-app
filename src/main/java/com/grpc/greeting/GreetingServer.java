@@ -1,4 +1,4 @@
-package com.grpc.chatroom;
+package com.grpc.greeting;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;

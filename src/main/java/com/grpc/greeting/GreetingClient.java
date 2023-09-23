@@ -1,4 +1,4 @@
-package com.grpc.chatroom;
+package com.grpc.greeting;
 
 import grpc.chatroom.server.GreetingServiceGrpc;
 import grpc.chatroom.server.HelloRequest;
@@ -15,8 +15,8 @@ public class GreetingClient {
     GreetingServiceGrpc.GreetingServiceBlockingStub stub = GreetingServiceGrpc.newBlockingStub(channel);
 
     HelloRequest request = HelloRequest.newBuilder()
-            .setFirstName("Quân")
-            .setLastName("Lê")
+            .setFirstName("Quan")
+            .setLastName("Le")
             .setAge(21)
             .addHobbies("coding")
             .addHobbies("sleeping")
