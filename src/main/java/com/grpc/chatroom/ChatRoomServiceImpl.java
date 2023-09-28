@@ -85,6 +85,7 @@ public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
       @Override
       public void onCompleted() {
+        System.out.println("Username: " + username);
         observers.remove(username);
       }
     };

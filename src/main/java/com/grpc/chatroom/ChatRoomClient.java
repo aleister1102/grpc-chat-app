@@ -57,10 +57,13 @@ public class ChatRoomClient {
 
     if (joinResponseCode.equals(JoinResponseCode.NAME_TAKEN))
       return;
-    
+
     System.out.println("Get user list...");
     UserList currentUserList = getUserList(blockingStub);
     System.out.println("Current users: " + currentUserList);
+
+    System.out.println("Sending chat message...");
+    StreamObserver<ChatMessage> streamToServer = sendMessage(asyncStub);
 
     Scanner scanner = new Scanner(System.in);
     do {
@@ -68,6 +71,7 @@ public class ChatRoomClient {
       String input = scanner.nextLine();
       System.out.println("You enter: " + input);
       if (input.equals("q")) {
+        streamToServer.onCompleted();
         break;
       } else {
         Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
@@ -77,9 +81,6 @@ public class ChatRoomClient {
                 .setLikeCount(0)
                 .setTimestamp(timestamp)
                 .build();
-
-        System.out.println("Sending chat message...");
-        StreamObserver<ChatMessage> streamToServer = sendMessage(asyncStub);
 
         streamToServer.onNext(chatMessage);
       }
