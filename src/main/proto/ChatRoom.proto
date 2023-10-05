@@ -28,9 +28,10 @@ message JoinResponse {
 
 message ChatMessage {
   User sender = 1;
-  string message = 2;
-  uint32 likeCount = 3;
-  google.protobuf.Timestamp timestamp = 4;
+  User receiver = 2;
+  string message = 3;
+  uint32 likeCount = 4;
+  google.protobuf.Timestamp timestamp = 5;
 }
 
 message ChatMessageFromServer {

@@ -31,12 +31,16 @@ public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
     // Check if the username is already existed
     if (isUsernameExisted(username)) {
-      String failedJoinMessage = "Join the chat room failed because the username is already existed!";
-      joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.NAME_TAKEN).setMessage(failedJoinMessage).build();
+      String failedJoinMessage = "Join the chat room failed because the username '%s' is already existed!";
+      joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.NAME_TAKEN).setMessage(String.format(failedJoinMessage, username)).build();
     } else {
       String succeedJoinMessage = "Join the chat room successfully!";
       joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.OK).setMessage(succeedJoinMessage).build();
       users.add(user);
+
+      for (var existingUser : users) {
+        System.out.println(existingUser);
+      }
     }
 
     responseObserver.onNext(joinResponse);
@@ -62,19 +66,26 @@ public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
       public void onNext(ChatMessage chatMessage) {
         observers.putIfAbsent(chatMessage.getSender().getName(), responseObserver);
 
-        System.out.println("Current observers: ");
+        System.out.print("Current observers: ");
         for (var observer : observers.entrySet()) {
-          System.out.println(observer.getKey());
+          System.out.print(observer.getKey() + " ");
         }
+        System.out.println("\n");
 
         ChatRoomUtil.logChatMessage(chatMessage);
         ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
                 .setMessageFromServer(chatMessage)
                 .build();
 
-        // Broadcast the message
+        User receiver = chatMessage.getReceiver();
         for (var observer : observers.entrySet()) {
-          observer.getValue().onNext(messageFromServer);
+          String observerName = observer.getKey();
+          StreamObserver<ChatMessageFromServer> streamObserver = observer.getValue();
+
+          // Broadcast the message or send to a specific user
+          if (receiver.getName().equals("ALL") || receiver.getName().equals(observerName)) {
+            streamObserver.onNext(messageFromServer);
+          }
         }
       }
 
