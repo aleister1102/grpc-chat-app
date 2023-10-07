@@ -8,39 +8,30 @@ import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
+public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   private final List<User> users = new ArrayList<>();
   private static final Map<String, StreamObserver<ChatMessageFromServer>> observers = new ConcurrentHashMap<>();
 
   private boolean isUsernameExisted(String username) {
-    for (User user : users) {
-      if (user.getName().equals(username)) {
-        return true;
-      }
-    }
-    return false;
+    return users.stream().anyMatch(user -> user.getName().equals(username));
   }
 
   @Override
-  public void join(User user, StreamObserver<JoinResponse> responseObserver) {
+  public void register(User user, StreamObserver<RegisterResponse> responseObserver) {
     String username = user.getName();
     System.out.println("A new user is joining: " + username);
 
-    JoinResponse.Builder joinResponseBuilder = JoinResponse.newBuilder();
-    JoinResponse joinResponse;
+    RegisterResponse.Builder joinResponseBuilder = RegisterResponse.newBuilder();
+    RegisterResponse joinResponse;
 
     // Check if the username is already existed
     if (isUsernameExisted(username)) {
       String failedJoinMessage = "Join the chat room failed because the username '%s' is already existed!";
-      joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.NAME_TAKEN).setMessage(String.format(failedJoinMessage, username)).build();
+      joinResponse = joinResponseBuilder.setResponseCode(RegisterResponseCode.NAME_TAKEN).setMessage(String.format(failedJoinMessage, username)).build();
     } else {
       String succeedJoinMessage = "Join the chat room successfully!";
-      joinResponse = joinResponseBuilder.setResponseCode(JoinResponseCode.OK).setMessage(succeedJoinMessage).build();
+      joinResponse = joinResponseBuilder.setResponseCode(RegisterResponseCode.OK).setMessage(succeedJoinMessage).build();
       users.add(user);
-
-      for (var existingUser : users) {
-        System.out.println(existingUser);
-      }
     }
 
     responseObserver.onNext(joinResponse);
@@ -66,13 +57,7 @@ public class ChatRoomServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
       public void onNext(ChatMessage chatMessage) {
         observers.putIfAbsent(chatMessage.getSender().getName(), responseObserver);
 
-        System.out.print("Current observers: ");
-        for (var observer : observers.entrySet()) {
-          System.out.print(observer.getKey() + " ");
-        }
-        System.out.println("\n");
-
-        ChatRoomUtil.logChatMessage(chatMessage);
+        Util.logChatMessage(chatMessage);
         ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
                 .setMessageFromServer(chatMessage)
                 .build();

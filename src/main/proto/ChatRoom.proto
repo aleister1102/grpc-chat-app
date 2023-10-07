@@ -7,7 +7,7 @@ option java_multiple_files = true;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
-enum JoinResponseCode {
+enum RegisterResponseCode {
   OK = 0;
   NAME_TAKEN = 1;
 }
@@ -20,10 +20,9 @@ message UserList {
   repeated User users = 1;
 }
 
-message JoinResponse {
-  JoinResponseCode responseCode = 1;
+message RegisterResponse {
+  RegisterResponseCode responseCode = 1;
   string message = 2;
-
 }
 
 message ChatMessage {
@@ -39,7 +38,7 @@ message ChatMessageFromServer {
 }
 
 service ChatService {
-  rpc join(User) returns (JoinResponse);
+  rpc register(User) returns (RegisterResponse);
   rpc getUsers(google.protobuf.Empty) returns (UserList);
   rpc chat(stream ChatMessage) returns (stream ChatMessageFromServer);
 }

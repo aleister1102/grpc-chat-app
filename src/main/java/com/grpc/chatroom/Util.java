@@ -4,9 +4,7 @@ import com.google.protobuf.Timestamp;
 import grpc.chatroom.server.ChatMessage;
 import grpc.chatroom.server.User;
 
-import java.sql.Date;
-
-public class ChatRoomUtil {
+public class Util {
   public static void logChatMessage(ChatMessage chatMessage) {
     User sender = chatMessage.getSender();
     String senderName = sender.getName();

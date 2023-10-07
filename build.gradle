@@ -35,14 +35,14 @@ protobuf {
     }
 }
 
-tasks.register('runChatServer', JavaExec) {
-    main = 'com.grpc.chatroom.ChatRoomServer'
+tasks.register('runServer', JavaExec) {
+    main = 'com.grpc.chatroom.Server'
     classpath = sourceSets.main.runtimeClasspath
     standardInput = System.in
 }
 
-tasks.register('runChatClient', JavaExec) {
-    main = 'com.grpc.chatroom.ChatRoomClient'
+tasks.register('runClient', JavaExec) {
+    main = 'com.grpc.chatroom.Client'
     classpath = sourceSets.main.runtimeClasspath
     standardInput = System.in
 }

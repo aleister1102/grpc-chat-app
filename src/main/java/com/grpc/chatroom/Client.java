@@ -6,36 +6,29 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
-public class ChatRoomClient {
+public class Client {
   private static final ManagedChannel channel = ManagedChannelBuilder
-          .forAddress("localhost", ChatRoomServer.PORT)
+          .forAddress("localhost", Server.PORT)
           .usePlaintext()
           .build();
   public static final ChatServiceGrpc.ChatServiceBlockingStub blockingStub = ChatServiceGrpc.newBlockingStub(channel);
   public static final ChatServiceGrpc.ChatServiceStub asyncStub = ChatServiceGrpc.newStub(channel);
+  public static final StreamObserver<ChatMessage> streamToServer = Client.sendMessage(asyncStub);
 
-  public static boolean joinChatRoom(ChatServiceGrpc.ChatServiceBlockingStub blockingStub, User user) {
-    System.out.println("Joining chat room...");
-    JoinResponse joinResponse = blockingStub.join(user);
-    JoinResponseCode joinResponseCode = joinResponse.getResponseCode();
-    String responseMessage = joinResponse.getMessage();
-    System.out.println("Joining result: " + responseMessage);
-
-    return !joinResponseCode.equals(JoinResponseCode.NAME_TAKEN);
+  public static RegisterResponse register(ChatServiceGrpc.ChatServiceBlockingStub blockingStub, User user) {
+    return blockingStub.register(user);
   }
 
-  public static void getUserList(ChatServiceGrpc.ChatServiceBlockingStub blockingStub) {
-    System.out.println("Getting current user list...");
+  public static UserList getUserList(ChatServiceGrpc.ChatServiceBlockingStub blockingStub) {
     Empty empty = Empty.newBuilder().build();
-    UserList currentUserList = blockingStub.getUsers(empty);
-    System.out.println("Current users: " + currentUserList);
+    return blockingStub.getUsers(empty);
   }
 
   public static StreamObserver<ChatMessage> sendMessage(final ChatServiceGrpc.ChatServiceStub asyncStub) {
     return asyncStub.chat(new StreamObserver<ChatMessageFromServer>() {
       @Override
       public void onNext(ChatMessageFromServer chatMessageFromServer) {
-        ChatRoomUtil.logChatMessage(chatMessageFromServer.getMessageFromServer());
+        Util.logChatMessage(chatMessageFromServer.getMessageFromServer());
       }
 
       @Override
@@ -50,7 +43,6 @@ public class ChatRoomClient {
   }
 
   public static void main(String[] args) {
-    ChatRoomMenu.displayMainMenu();
-    ChatRoomMenu.processMainMenu();
+    Menu.mainMenu();
   }
 }
