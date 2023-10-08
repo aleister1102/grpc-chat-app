@@ -13,18 +13,18 @@ public class Client {
           .build();
   public static final ChatServiceGrpc.ChatServiceBlockingStub blockingStub = ChatServiceGrpc.newBlockingStub(channel);
   public static final ChatServiceGrpc.ChatServiceStub asyncStub = ChatServiceGrpc.newStub(channel);
-  public static final StreamObserver<ChatMessage> streamToServer = Client.sendMessage(asyncStub);
+  public static final StreamObserver<ChatMessage> streamToServer = sendMessage();
 
-  public static RegisterResponse register(ChatServiceGrpc.ChatServiceBlockingStub blockingStub, User user) {
+  public static RegisterResponse register(User user) {
     return blockingStub.register(user);
   }
 
-  public static UserList getUserList(ChatServiceGrpc.ChatServiceBlockingStub blockingStub) {
+  public static UserList getUserList() {
     Empty empty = Empty.newBuilder().build();
     return blockingStub.getUsers(empty);
   }
 
-  public static StreamObserver<ChatMessage> sendMessage(final ChatServiceGrpc.ChatServiceStub asyncStub) {
+  public static StreamObserver<ChatMessage> sendMessage() {
     return asyncStub.chat(new StreamObserver<ChatMessageFromServer>() {
       @Override
       public void onNext(ChatMessageFromServer chatMessageFromServer) {

@@ -13,7 +13,8 @@ enum RegisterResponseCode {
 }
 
 message User {
-  string name = 1;
+  uint64 id = 1;
+  string name = 2;
 }
 
 message UserList {
@@ -23,22 +24,35 @@ message UserList {
 message RegisterResponse {
   RegisterResponseCode responseCode = 1;
   string message = 2;
+  User user = 3;
 }
 
 message ChatMessage {
-  User sender = 1;
-  User receiver = 2;
-  string message = 3;
-  uint32 likeCount = 4;
-  google.protobuf.Timestamp timestamp = 5;
+  uint64 id = 1;
+  User sender = 2;
+  User receiver = 3;
+  string message = 4;
+  uint32 likeCount = 5;
+  google.protobuf.Timestamp timestamp = 6;
 }
 
 message ChatMessageFromServer {
   ChatMessage messageFromServer = 1;
 }
 
+message ChatMessageList {
+  repeated ChatMessage messages = 1;
+}
+
+message LikeMessage {
+  uint64 messageId = 1;
+  User sender = 2;
+}
+
 service ChatService {
   rpc register(User) returns (RegisterResponse);
   rpc getUsers(google.protobuf.Empty) returns (UserList);
   rpc chat(stream ChatMessage) returns (stream ChatMessageFromServer);
+  rpc getMessages(google.protobuf.Empty) returns (ChatMessageList);
+  rpc like(LikeMessage) returns (google.protobuf.Empty);
 }

@@ -10,7 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   private final List<User> users = new ArrayList<>();
-  private static final Map<String, StreamObserver<ChatMessageFromServer>> observers = new ConcurrentHashMap<>();
+  private long userCounter = 1;
+  private final Map<String, StreamObserver<ChatMessageFromServer>> observers = new ConcurrentHashMap<>();
+  private final List<ChatMessage> messages = new ArrayList<>();
+  private long messageCounter = 1;
+
 
   private boolean isUsernameExisted(String username) {
     return users.stream().anyMatch(user -> user.getName().equals(username));
@@ -29,10 +33,19 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
       String failedJoinMessage = "Join the chat room failed because the username '%s' is already existed!";
       joinResponse = joinResponseBuilder.setResponseCode(RegisterResponseCode.NAME_TAKEN).setMessage(String.format(failedJoinMessage, username)).build();
     } else {
+      User userWithId = user.toBuilder().setId(userCounter++).build();
+      users.add(userWithId);
+
       String succeedJoinMessage = "Join the chat room successfully!";
-      joinResponse = joinResponseBuilder.setResponseCode(RegisterResponseCode.OK).setMessage(succeedJoinMessage).build();
-      users.add(user);
+      joinResponse = joinResponseBuilder
+              .setResponseCode(RegisterResponseCode.OK)
+              .setMessage(succeedJoinMessage)
+              .setUser(userWithId)
+              .build();
     }
+
+    System.out.println("Current user list: ");
+    users.forEach(u -> System.out.println(u.getName()));
 
     responseObserver.onNext(joinResponse);
     responseObserver.onCompleted();
@@ -50,26 +63,35 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
   @Override
   public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessageFromServer> responseObserver) {
-    return new StreamObserver<ChatMessage>() {
+    return new StreamObserver<>() {
       private String username;
 
       @Override
       public void onNext(ChatMessage chatMessage) {
-        observers.putIfAbsent(chatMessage.getSender().getName(), responseObserver);
+        ChatMessage chatMessageWithId = chatMessage.toBuilder().setId(messageCounter++).build();
+        messages.add(chatMessageWithId);
 
-        Util.logChatMessage(chatMessage);
+        username = chatMessageWithId.getSender().getName();
+        observers.putIfAbsent(username, responseObserver);
+
+        Util.logChatMessage(chatMessageWithId);
         ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
-                .setMessageFromServer(chatMessage)
+                .setMessageFromServer(chatMessageWithId)
                 .build();
 
-        User receiver = chatMessage.getReceiver();
+        User receiver = chatMessageWithId.getReceiver();
         for (var observer : observers.entrySet()) {
           String observerName = observer.getKey();
           StreamObserver<ChatMessageFromServer> streamObserver = observer.getValue();
 
-          // Broadcast the message or send to a specific user
-          if (receiver.getName().equals("ALL") || receiver.getName().equals(observerName)) {
+          // Broadcast the message
+          if (!chatMessageWithId.hasReceiver()) {
             streamObserver.onNext(messageFromServer);
+          } else {
+            // Send the message to the receiver
+            if (receiver.getName().equals(observerName) || username.equals(observerName)) {
+              streamObserver.onNext(messageFromServer);
+            }
           }
         }
       }
@@ -86,4 +108,5 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
       }
     };
   }
+
 }

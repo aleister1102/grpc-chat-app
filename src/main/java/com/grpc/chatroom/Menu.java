@@ -23,12 +23,25 @@ public class Menu {
     return registerResponse.getResponseCode().equals(RegisterResponseCode.OK);
   }
 
+  public static boolean checkWhetherUserIsRegistered() {
+    return isAlreadyRegistered;
+  }
+
+  public static boolean checkWhetherUserIsRegisteredAndExit() {
+    if (!checkWhetherUserIsRegistered()) {
+      System.out.println("You have not registered yet!");
+      pause();
+      return false;
+    }
+    return true;
+  }
+
   public static String getUserInput() {
     return scanner.nextLine();
   }
 
   public static String getUserInputWithPrompt(String prompt) {
-    System.out.println(prompt);
+    System.out.print(prompt);
     return getUserInput();
   }
 
@@ -58,6 +71,7 @@ public class Menu {
   }
 
   public static void exit() {
+    Client.streamToServer.onCompleted();
     System.out.println("Exiting...");
     System.exit(0);
   }
@@ -96,6 +110,9 @@ public class Menu {
           break;
         }
         case MainMenuOption.JOIN_CHAT_ROOM: {
+          if (!checkWhetherUserIsRegisteredAndExit())
+            break;
+
           boolean stayInChatRoom;
           do {
             clearScreen();
@@ -128,63 +145,67 @@ public class Menu {
     }
 
     User user = User.newBuilder().setName(userInput).build();
-    RegisterResponse registerResponse = Client.register(Client.blockingStub, user);
+    RegisterResponse registerResponse = Client.register(user);
+    long userId = registerResponse.getUser().getId();
+    user = user.toBuilder().setId(userId).build();
 
     if (isRegisteredSuccessfully(registerResponse)) {
-      currentUser = user;
       isAlreadyRegistered = true;
+      currentUser = user;
     }
 
     System.out.println("Register result: " + registerResponse.getMessage());
   }
 
   private static void userList() {
-    UserList currentUserList = Client.getUserList(Client.blockingStub);
+    UserList currentUserList = Client.getUserList();
 
     System.out.println("Current users: " + currentUserList);
 
   }
 
   private static boolean chatRoomMenu() {
+    System.out.printf("Current username: %s\n", currentUser.getName());
+    System.out.printf("Current observer: %s\n", Client.streamToServer);
     int userOption = getUserOption(MenuOptionLimit.JOIN_CHAT_ROOM_MENU);
-
-    if(userOption == JoinChatRoomMenuOption.BACK_TO_MAIN) {
+    if (userOption == JoinChatRoomMenuOption.BACK_TO_MAIN) {
       return false;
     }
 
+    System.out.printf("Enter message, '%s' to turn back or '%s' to exit \n", Option.BACK, Option.EXIT);
     do {
-      String prompt = String.format("Enter message or enter '%s' to turn back: ", Option.BACK);
-      String userInput = getUserInputWithPrompt(prompt);
-
-      if (userInput.equals(Option.BACK)) {
+      String userMessage = getUserInput();
+      if (userMessage.equals(Option.EXIT))
+        exit();
+      if (userMessage.equals(Option.BACK))
         return true;
-      } else {
-        switch (userOption) {
-          case JoinChatRoomMenuOption.BROADCAST: {
-            broadcastMessage(userInput);
-            break;
-          }
-          case JoinChatRoomMenuOption.DIRECTLY: {
-            String receiverName = getUserInputWithPrompt("Enter the receiver name: ");
-            sendMessageDirectly(userInput, receiverName);
-            break;
-          }
-          default:
-            break;
-        }
-      }
-    } while (scanner.hasNextLine());
 
-    Client.streamToServer.onCompleted();
-    return true;
+      switch (userOption) {
+        case JoinChatRoomMenuOption.BROADCAST: {
+          broadcastMessage(userMessage);
+          break;
+        }
+        case JoinChatRoomMenuOption.DIRECTLY: {
+          String prompt = "Enter the receiver's name: ";
+          String receiverName = getUserInputWithPrompt(prompt);
+          sendMessageDirectly(userMessage, receiverName);
+          break;
+        }
+        case JoinChatRoomMenuOption.LIKE_MESSAGE: {
+          break;
+        }
+        default:
+          break;
+      }
+    } while (true);
   }
 
 
-  private static void broadcastMessage(String userInput) {
+  private static void broadcastMessage(String userMessage) {
     Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
     ChatMessage chatMessage = ChatMessage.newBuilder()
             .setSender(currentUser)
-            .setMessage(userInput)
+            .setMessage(userMessage)
             .setLikeCount(0)
             .setTimestamp(timestamp)
             .build();
@@ -203,6 +224,5 @@ public class Menu {
             .build();
     Client.streamToServer.onNext(chatMessage);
   }
-
 }
 
