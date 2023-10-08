@@ -2,6 +2,7 @@ package com.grpc.chatroom;
 
 
 import com.google.protobuf.Empty;
+import com.grpc.chatroom.constants.ErrorMessage;
 import grpc.chatroom.server.*;
 import io.grpc.stub.StreamObserver;
 
@@ -110,7 +111,8 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
       @Override
       public void onError(Throwable t) {
-        observers.remove(username);
+        if (username != null)
+          observers.remove(username);
       }
 
       @Override
@@ -124,29 +126,65 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   }
 
   @Override
-  public void like(LikeMessage request, StreamObserver<ChatMessageFromServer> responseObserver) {
-    long messageId = request.getMessageId();
+  public void like(LikeMessage likeMessage, StreamObserver<ChatMessageFromServer> responseObserver) {
+    long messageId = likeMessage.getMessageId();
     ChatMessage chatMessage = messages.stream()
             .filter(message -> message.getId() == messageId)
             .findFirst()
             .orElse(null);
+    ChatMessageFromServer.Builder messageFromServerBuilder = ChatMessageFromServer.newBuilder();
 
     if (chatMessage == null) {
       String messageNotFound = "Message with id '%d' is not found!";
       String errorMessage = String.format(messageNotFound, messageId);
-      responseObserver.onError(new Exception(errorMessage));
-    } else {
-      ChatMessage likedMessage = chatMessage.toBuilder()
-              .setLikeCount(chatMessage.getLikeCount() + 1)
-              .build();
-      messages.set((int) messageId - 1, likedMessage);
-
-      ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
-              .setMessageFromServer(likedMessage)
-              .build();
-
+      ChatMessageFromServer messageFromServer = messageFromServerBuilder.setMessageFromServer(ChatMessage.newBuilder().setMessage(errorMessage).build()).build();
       responseObserver.onNext(messageFromServer);
-      responseObserver.onCompleted();
+    } else {
+      // Check whether the user has liked the message
+      boolean isUserLiked = chatMessage.getLikeUsersList().stream()
+              .anyMatch(user -> user.getName().equals(likeMessage.getSender().getName()));
+
+      if (isUserLiked) {
+        String messageAlreadyLiked = "Message with id '%d' is already liked by user '%s'!";
+        String errorMessage = String.format(messageAlreadyLiked, messageId, likeMessage.getSender().getName());
+        ChatMessageFromServer messageFromServer = messageFromServerBuilder.setMessageFromServer(ChatMessage.newBuilder().setMessage(errorMessage).build()).build();
+        responseObserver.onNext(messageFromServer);
+      } else {
+        ChatMessage likedMessage = chatMessage.toBuilder()
+                .addLikeUsers(likeMessage.getSender())
+                .build();
+        messages.set((int) messageId - 1, likedMessage);
+        ChatMessageFromServer messageFromServer = messageFromServerBuilder
+                .setMessageFromServer(likedMessage)
+                .build();
+
+        // Broadcast the like message
+        for (var observer : observers.entrySet()) {
+          if (observer.getKey().equals(likedMessage.getSender().getName())) continue;
+          StreamObserver<ChatMessageFromServer> streamObserver = observer.getValue();
+          streamObserver.onNext(messageFromServer);
+        }
+        responseObserver.onNext(messageFromServer);
+      }
     }
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void getPreviousMessage(User request, StreamObserver<ChatMessageFromServer> responseObserver) {
+    String username = request.getName();
+    ChatMessage previousMessage = messages.stream()
+            .filter(message -> message.getSender().getName().equals(username))
+            .reduce((first, second) -> second)
+            .orElse(null);
+
+    ChatMessage previousMessageNotFound = ChatMessage.newBuilder().setMessage(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND).build();
+
+    ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
+            .setMessageFromServer(previousMessage != null ? previousMessage : previousMessageNotFound)
+            .build();
+
+    responseObserver.onNext(messageFromServer);
+    responseObserver.onCompleted();
   }
 }

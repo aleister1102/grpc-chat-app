@@ -25,7 +25,7 @@ public class Client {
   }
 
   public static StreamObserver<ChatMessage> sendMessage() {
-    return asyncStub.chat(new StreamObserver<ChatMessageFromServer>() {
+    return asyncStub.chat(new StreamObserver<>() {
       @Override
       public void onNext(ChatMessageFromServer chatMessageFromServer) {
         Util.logChatMessage(chatMessageFromServer.getMessageFromServer());
@@ -47,9 +47,16 @@ public class Client {
     return blockingStub.getMessages(empty);
   }
 
-  public static ChatMessageFromServer like(long messageId) {
-    LikeMessage likeMessage = LikeMessage.newBuilder().setMessageId(messageId).build();
+  public static ChatMessageFromServer like(long messageId, User sender) {
+    LikeMessage likeMessage = LikeMessage.newBuilder()
+            .setMessageId(messageId)
+            .setSender(sender)
+            .build();
     return blockingStub.like(likeMessage);
+  }
+
+  public static ChatMessageFromServer getPreviousMessage(User user) {
+    return blockingStub.getPreviousMessage(user);
   }
 
   public static void main(String[] args) {

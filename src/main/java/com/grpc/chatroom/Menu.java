@@ -1,12 +1,10 @@
 package com.grpc.chatroom;
 
 import com.google.protobuf.Timestamp;
-import com.grpc.chatroom.constants.JoinChatRoomMenuOption;
-import com.grpc.chatroom.constants.MainMenuOption;
-import com.grpc.chatroom.constants.MenuOptionLimit;
-import com.grpc.chatroom.constants.Option;
+import com.grpc.chatroom.constants.*;
 import grpc.chatroom.server.*;
 
+import java.util.List;
 import java.util.Scanner;
 
 public class Menu {
@@ -34,6 +32,26 @@ public class Menu {
       return false;
     }
     return true;
+  }
+
+  public static boolean canUserSendBroadcastMessage(String username) {
+    ChatMessage previousMessage = getPreviousMessage(username);
+    if (previousMessage == null)
+      return true;
+
+    List<User> likeUsers = previousMessage.getLikeUsersList();
+    int likeCount = 0;
+    for (User likeUser : likeUsers) {
+      if (likeUser.getName().equals(username)) {
+        continue;
+      }
+      likeCount++;
+    }
+    return likeCount >= 2;
+  }
+
+  public static boolean isPreviousMessagePresent(ChatMessageFromServer chatMessageFromServer) {
+    return !chatMessageFromServer.getMessageFromServer().getMessage().equals(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND);
   }
 
   public static String getUserInput() {
@@ -214,15 +232,29 @@ public class Menu {
 
 
   private static void broadcastMessage(String userMessage) {
+    if (!canUserSendBroadcastMessage(currentUser.getName())) {
+      System.out.println("You cannot send a broadcast message because the previous message has not been liked by at least 2 other people!");
+      return;
+    }
+
     Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
-    ChatMessage chatMessage = ChatMessage.newBuilder().setSender(currentUser).setMessage(userMessage).setLikeCount(0).setTimestamp(timestamp).build();
+    ChatMessage chatMessage = ChatMessage.newBuilder()
+            .setSender(currentUser)
+            .setMessage(userMessage)
+            .setTimestamp(timestamp)
+            .build();
     Client.streamToServer.onNext(chatMessage);
   }
 
   private static void sendMessageDirectly(String userInput, String receiverName) {
     Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
     User receiver = User.newBuilder().setName(receiverName).build();
-    ChatMessage chatMessage = ChatMessage.newBuilder().setSender(currentUser).setReceiver(receiver).setMessage(userInput).setLikeCount(0).setTimestamp(timestamp).build();
+    ChatMessage chatMessage = ChatMessage.newBuilder()
+            .setSender(currentUser)
+            .setReceiver(receiver)
+            .setMessage(userInput)
+            .setTimestamp(timestamp)
+            .build();
     Client.streamToServer.onNext(chatMessage);
   }
 
@@ -238,11 +270,25 @@ public class Menu {
 
     try {
       long messageId = Long.parseLong(userInput);
-      ChatMessageFromServer chatMessageFromServer = Client.like(messageId);
+      ChatMessageFromServer chatMessageFromServer = Client.like(messageId, currentUser);
       Util.logChatMessage(chatMessageFromServer.getMessageFromServer());
     } catch (NumberFormatException e) {
       System.out.println("Invalid message id! Please enter a number!");
     }
   }
-}
 
+  private static ChatMessage getPreviousMessage(String username) {
+    User user = User.newBuilder().setName(username).build();
+    ChatMessageFromServer chatMessageFromServer = Client.getPreviousMessage(user);
+
+    if (isPreviousMessagePresent(chatMessageFromServer)) {
+      ChatMessage previousMessage = chatMessageFromServer.getMessageFromServer();
+      System.out.printf("Previous message of %s: ", username);
+      Util.logChatMessage(previousMessage);
+      return previousMessage;
+    } else {
+      System.out.printf("No previous message of %s\n", username);
+      return null;
+    }
+  }
+}

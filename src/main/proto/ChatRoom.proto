@@ -32,7 +32,7 @@ message ChatMessage {
   User sender = 2;
   User receiver = 3;
   string message = 4;
-  uint32 likeCount = 5;
+  repeated User likeUsers = 5;
   google.protobuf.Timestamp timestamp = 6;
 }
 
