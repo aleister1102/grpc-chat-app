@@ -12,7 +12,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   private final List<User> users = new ArrayList<>();
   private long userCounter = 1;
   private final Map<String, StreamObserver<ChatMessageFromServer>> observers = new ConcurrentHashMap<>();
-  private final List<ChatMessage> messages = new ArrayList<>();
+  private final List<ChatMessage> messages = new LinkedList<>();
   private long messageCounter = 1;
 
 
@@ -61,6 +61,18 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
     responseObserver.onCompleted();
   }
 
+
+  @Override
+  public void getMessages(Empty request, StreamObserver<ChatMessageList> responseObserver) {
+    ChatMessageList chatMessageList = ChatMessageList.newBuilder()
+            .addAllMessages(messages)
+            .build();
+
+    responseObserver.onNext(chatMessageList);
+    responseObserver.onCompleted();
+  }
+
+
   @Override
   public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessageFromServer> responseObserver) {
     return new StreamObserver<>() {
@@ -103,10 +115,38 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
       @Override
       public void onCompleted() {
-        System.out.println("Username: " + username);
-        observers.remove(username);
+        System.out.printf("Username: %s is leaving...", username);
+        if (username != null)
+          observers.remove(username);
+
       }
     };
   }
 
+  @Override
+  public void like(LikeMessage request, StreamObserver<ChatMessageFromServer> responseObserver) {
+    long messageId = request.getMessageId();
+    ChatMessage chatMessage = messages.stream()
+            .filter(message -> message.getId() == messageId)
+            .findFirst()
+            .orElse(null);
+
+    if (chatMessage == null) {
+      String messageNotFound = "Message with id '%d' is not found!";
+      String errorMessage = String.format(messageNotFound, messageId);
+      responseObserver.onError(new Exception(errorMessage));
+    } else {
+      ChatMessage likedMessage = chatMessage.toBuilder()
+              .setLikeCount(chatMessage.getLikeCount() + 1)
+              .build();
+      messages.set((int) messageId - 1, likedMessage);
+
+      ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
+              .setMessageFromServer(likedMessage)
+              .build();
+
+      responseObserver.onNext(messageFromServer);
+      responseObserver.onCompleted();
+    }
+  }
 }

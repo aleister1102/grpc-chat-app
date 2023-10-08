@@ -54,5 +54,6 @@ service ChatService {
   rpc getUsers(google.protobuf.Empty) returns (UserList);
   rpc chat(stream ChatMessage) returns (stream ChatMessageFromServer);
   rpc getMessages(google.protobuf.Empty) returns (ChatMessageList);
-  rpc like(LikeMessage) returns (google.protobuf.Empty);
+  rpc like(LikeMessage) returns (ChatMessageFromServer);
+  rpc getPreviousMessage(User) returns (ChatMessageFromServer);
 }

@@ -12,10 +12,17 @@ public class Util {
     String senderName = sender.getName();
     String message = chatMessage.getMessage();
     Long messageId = chatMessage.getId();
+    int likeCount = chatMessage.getLikeCount();
     Timestamp timestamp = chatMessage.getTimestamp();
     String readableTimestamp = new java.sql.Timestamp(timestamp.getSeconds()).toString();
 
-    // format: [timestamp] senderName - userId: message (messageId)
-    System.out.printf("\n[%s] %s - %d: %s (%d)\n", readableTimestamp, senderName, senderId, message, messageId);
+    // format: [timestamp] senderName (ID: userId): message (ID: messageId, like: likeCount)
+    System.out.printf("\n[%s] %s - %d: %s (ID: %d, like: %d)\n",
+            readableTimestamp,
+            senderName,
+            senderId,
+            message,
+            messageId,
+            likeCount);
   }
 }

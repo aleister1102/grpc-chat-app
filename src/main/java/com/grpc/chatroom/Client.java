@@ -42,6 +42,16 @@ public class Client {
     });
   }
 
+  public static ChatMessageList getMessageList() {
+    Empty empty = Empty.newBuilder().build();
+    return blockingStub.getMessages(empty);
+  }
+
+  public static ChatMessageFromServer like(long messageId) {
+    LikeMessage likeMessage = LikeMessage.newBuilder().setMessageId(messageId).build();
+    return blockingStub.like(likeMessage);
+  }
+
   public static void main(String[] args) {
     Menu.mainMenu();
   }

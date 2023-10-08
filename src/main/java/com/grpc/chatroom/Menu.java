@@ -87,6 +87,7 @@ public class Menu {
     System.out.printf("%d. Turn back to the main menu\n", JoinChatRoomMenuOption.BACK_TO_MAIN);
     System.out.printf("%d. Send message to everybody\n", JoinChatRoomMenuOption.BROADCAST);
     System.out.printf("%d. Send message to a specific user\n", JoinChatRoomMenuOption.DIRECTLY);
+    System.out.printf("%d. Get the list of chat messages\n", JoinChatRoomMenuOption.GET_CHAT_MESSAGE_LIST);
     System.out.printf("%d. Like a message\n", JoinChatRoomMenuOption.LIKE_MESSAGE);
   }
 
@@ -110,8 +111,7 @@ public class Menu {
           break;
         }
         case MainMenuOption.JOIN_CHAT_ROOM: {
-          if (!checkWhetherUserIsRegisteredAndExit())
-            break;
+          if (!checkWhetherUserIsRegisteredAndExit()) break;
 
           boolean stayInChatRoom;
           do {
@@ -173,26 +173,38 @@ public class Menu {
     }
 
     System.out.printf("Enter message, '%s' to turn back or '%s' to exit \n", Option.BACK, Option.EXIT);
+    String userMessage;
     do {
-      String userMessage = getUserInput();
-      if (userMessage.equals(Option.EXIT))
-        exit();
-      if (userMessage.equals(Option.BACK))
-        return true;
+
 
       switch (userOption) {
         case JoinChatRoomMenuOption.BROADCAST: {
+          userMessage = getUserInput();
+          if (userMessage.equals(Option.EXIT)) exit();
+          if (userMessage.equals(Option.BACK)) return true;
+
           broadcastMessage(userMessage);
           break;
         }
         case JoinChatRoomMenuOption.DIRECTLY: {
+          userMessage = getUserInput();
+          if (userMessage.equals(Option.EXIT)) exit();
+          if (userMessage.equals(Option.BACK)) return true;
+
           String prompt = "Enter the receiver's name: ";
           String receiverName = getUserInputWithPrompt(prompt);
           sendMessageDirectly(userMessage, receiverName);
           break;
         }
+        case JoinChatRoomMenuOption.GET_CHAT_MESSAGE_LIST: {
+          chatMessageList();
+          pause();
+          return true;
+        }
         case JoinChatRoomMenuOption.LIKE_MESSAGE: {
-          break;
+          likeMessage();
+          pause();
+          return true;
         }
         default:
           break;
@@ -203,26 +215,34 @@ public class Menu {
 
   private static void broadcastMessage(String userMessage) {
     Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
-    ChatMessage chatMessage = ChatMessage.newBuilder()
-            .setSender(currentUser)
-            .setMessage(userMessage)
-            .setLikeCount(0)
-            .setTimestamp(timestamp)
-            .build();
+    ChatMessage chatMessage = ChatMessage.newBuilder().setSender(currentUser).setMessage(userMessage).setLikeCount(0).setTimestamp(timestamp).build();
     Client.streamToServer.onNext(chatMessage);
   }
 
   private static void sendMessageDirectly(String userInput, String receiverName) {
     Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
     User receiver = User.newBuilder().setName(receiverName).build();
-    ChatMessage chatMessage = ChatMessage.newBuilder()
-            .setSender(currentUser)
-            .setReceiver(receiver)
-            .setMessage(userInput)
-            .setLikeCount(0)
-            .setTimestamp(timestamp)
-            .build();
+    ChatMessage chatMessage = ChatMessage.newBuilder().setSender(currentUser).setReceiver(receiver).setMessage(userInput).setLikeCount(0).setTimestamp(timestamp).build();
     Client.streamToServer.onNext(chatMessage);
+  }
+
+  private static void chatMessageList() {
+    ChatMessageList chatMessageList = Client.getMessageList();
+
+    System.out.println("Current chat message list: " + chatMessageList);
+  }
+
+  private static void likeMessage() {
+    String prompt = "Enter the message id: ";
+    String userInput = getUserInputWithPrompt(prompt);
+
+    try {
+      long messageId = Long.parseLong(userInput);
+      ChatMessageFromServer chatMessageFromServer = Client.like(messageId);
+      Util.logChatMessage(chatMessageFromServer.getMessageFromServer());
+    } catch (NumberFormatException e) {
+      System.out.println("Invalid message id! Please enter a number!");
+    }
   }
 }
 
