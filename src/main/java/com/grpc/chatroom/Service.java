@@ -24,7 +24,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   @Override
   public void register(User user, StreamObserver<RegisterResponse> responseObserver) {
     String username = user.getName();
-    System.out.println("A new user is joining: " + username);
+    System.out.println("A new user is resgitering: " + username);
 
     RegisterResponse.Builder joinResponseBuilder = RegisterResponse.newBuilder();
     RegisterResponse joinResponse;
@@ -73,7 +73,6 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
     responseObserver.onCompleted();
   }
 
-
   @Override
   public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessageFromServer> responseObserver) {
     return new StreamObserver<>() {
@@ -81,11 +80,14 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
       @Override
       public void onNext(ChatMessage chatMessage) {
+        MessageType messageType = chatMessage.getMessageType();
+        if (messageType.equals(MessageType.JOIN)) {
+          username = chatMessage.getSender().getName();
+          observers.putIfAbsent(username, responseObserver);
+        }
+
         ChatMessage chatMessageWithId = chatMessage.toBuilder().setId(messageCounter++).build();
         messages.add(chatMessageWithId);
-
-        username = chatMessageWithId.getSender().getName();
-        observers.putIfAbsent(username, responseObserver);
 
         Util.logChatMessage(chatMessageWithId);
         ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()

@@ -21,14 +21,16 @@ public class Util {
     String likeUsers = parseLikeUsersToString(chatMessage.getLikeUsersList());
     Timestamp timestamp = chatMessage.getTimestamp();
     String readableTimestamp = new java.sql.Timestamp(timestamp.getSeconds()).toString();
+    String messageType = chatMessage.getMessageType().toString();
 
-    // format: [timestamp] senderName (ID: userId): message (ID: messageId, like users: )
-    System.out.printf("\n[%s] %s - %d: %s (ID: %d, like users: %s)\n",
+    // format: [timestamp] senderName (ID: userId): message (ID: messageId, like users: , type: messageType)
+    System.out.printf("\n[%s] %s - %d: %s (ID: %d, like users: %s, type: %s)\n",
             readableTimestamp,
             senderName,
             senderId,
             message,
             messageId,
-            likeUsers);
+            likeUsers,
+            messageType);
   }
 }

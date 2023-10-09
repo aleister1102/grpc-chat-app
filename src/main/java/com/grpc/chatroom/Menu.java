@@ -47,11 +47,15 @@ public class Menu {
       }
       likeCount++;
     }
-    return likeCount >= 2;
+    return likeCount >= 2 || isJoinMessage(previousMessage);
   }
 
   public static boolean isPreviousMessagePresent(ChatMessageFromServer chatMessageFromServer) {
     return !chatMessageFromServer.getMessageFromServer().getMessage().equals(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND);
+  }
+
+  public static boolean isJoinMessage(ChatMessage chatMessage) {
+    return chatMessage.getMessageType().equals(MessageType.JOIN);
   }
 
   public static String getUserInput() {
@@ -131,6 +135,8 @@ public class Menu {
         case MainMenuOption.JOIN_CHAT_ROOM: {
           if (!checkWhetherUserIsRegisteredAndExit()) break;
 
+          joinChatRoom();
+
           boolean stayInChatRoom;
           do {
             clearScreen();
@@ -180,6 +186,17 @@ public class Menu {
 
     System.out.println("Current users: " + currentUserList);
 
+  }
+
+  private static void joinChatRoom() {
+    Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
+    ChatMessage joinMessage = ChatMessage.newBuilder()
+            .setSender(currentUser)
+            .setMessage("Join the chat room")
+            .setMessageType(MessageType.JOIN)
+            .setTimestamp(timestamp)
+            .build();
+    Client.streamToServer.onNext(joinMessage);
   }
 
   private static boolean chatRoomMenu() {
@@ -242,6 +259,7 @@ public class Menu {
             .setSender(currentUser)
             .setMessage(userMessage)
             .setTimestamp(timestamp)
+            .setMessageType(MessageType.CHAT)
             .build();
     Client.streamToServer.onNext(chatMessage);
   }
@@ -254,6 +272,7 @@ public class Menu {
             .setReceiver(receiver)
             .setMessage(userInput)
             .setTimestamp(timestamp)
+            .setMessageType(MessageType.CHAT)
             .build();
     Client.streamToServer.onNext(chatMessage);
   }
