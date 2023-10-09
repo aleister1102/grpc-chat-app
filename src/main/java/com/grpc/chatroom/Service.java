@@ -113,16 +113,22 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
       @Override
       public void onError(Throwable t) {
-        if (username != null)
+        if (username != null) {
+          User user = users.stream().filter(u -> u.getName().equals(username)).findFirst().orElse(null);
+          users.remove(user);
           observers.remove(username);
+
+        }
       }
 
       @Override
       public void onCompleted() {
         System.out.printf("Username: %s is leaving...", username);
-        if (username != null)
+        if (username != null) {
+          User user = users.stream().filter(u -> u.getName().equals(username)).findFirst().orElse(null);
+          users.remove(user);
           observers.remove(username);
-
+        }
       }
     };
   }
@@ -162,7 +168,6 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
         // Broadcast the like message
         for (var observer : observers.entrySet()) {
-          if (observer.getKey().equals(likedMessage.getSender().getName())) continue;
           StreamObserver<ChatMessageFromServer> streamObserver = observer.getValue();
           streamObserver.onNext(messageFromServer);
         }
