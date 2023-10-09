@@ -47,15 +47,15 @@ public class Menu {
       }
       likeCount++;
     }
-    return likeCount >= 2 || isJoinMessage(previousMessage);
+    return likeCount >= 2 || isNotBroadcastMessage(previousMessage);
   }
 
   public static boolean isPreviousMessagePresent(ChatMessageFromServer chatMessageFromServer) {
     return !chatMessageFromServer.getMessageFromServer().getMessage().equals(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND);
   }
 
-  public static boolean isJoinMessage(ChatMessage chatMessage) {
-    return chatMessage.getMessageType().equals(MessageType.JOIN);
+  public static boolean isNotBroadcastMessage(ChatMessage chatMessage) {
+    return !chatMessage.getMessageType().equals(MessageType.BROADCAST);
   }
 
   public static String getUserInput() {
@@ -259,7 +259,7 @@ public class Menu {
             .setSender(currentUser)
             .setMessage(userMessage)
             .setTimestamp(timestamp)
-            .setMessageType(MessageType.CHAT)
+            .setMessageType(MessageType.BROADCAST)
             .build();
     Client.streamToServer.onNext(chatMessage);
   }
@@ -272,7 +272,7 @@ public class Menu {
             .setReceiver(receiver)
             .setMessage(userInput)
             .setTimestamp(timestamp)
-            .setMessageType(MessageType.CHAT)
+            .setMessageType(MessageType.DIRECT)
             .build();
     Client.streamToServer.onNext(chatMessage);
   }

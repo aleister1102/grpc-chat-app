@@ -6,6 +6,7 @@ import com.grpc.chatroom.constants.ErrorMessage;
 import grpc.chatroom.server.*;
 import io.grpc.stub.StreamObserver;
 
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,20 +25,25 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   @Override
   public void register(User user, StreamObserver<RegisterResponse> responseObserver) {
     String username = user.getName();
-    System.out.println("A new user is resgitering: " + username);
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    String log = String.format("[%s] User '%s' is registering...\n", now, username);
+    System.out.printf(log);
+    Util.writeLog(log);
 
     RegisterResponse.Builder joinResponseBuilder = RegisterResponse.newBuilder();
     RegisterResponse joinResponse;
 
     // Check if the username is already existed
     if (isUsernameExisted(username)) {
-      String failedJoinMessage = "Join the chat room failed because the username '%s' is already existed!";
+      String failedJoinMessage = String.format("[%s] User '%s' registered failed because the username '%s' is already existed!\n", now, username, username);
+      Util.writeLog(failedJoinMessage);
       joinResponse = joinResponseBuilder.setResponseCode(RegisterResponseCode.NAME_TAKEN).setMessage(String.format(failedJoinMessage, username)).build();
     } else {
       User userWithId = user.toBuilder().setId(userCounter++).build();
       users.add(userWithId);
 
-      String succeedJoinMessage = "Join the chat room successfully!";
+      String succeedJoinMessage = String.format("[%s] User '%s' registered successfully!\n", now, username);
+      Util.writeLog(succeedJoinMessage);
       joinResponse = joinResponseBuilder
               .setResponseCode(RegisterResponseCode.OK)
               .setMessage(succeedJoinMessage)
@@ -89,7 +95,8 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
         ChatMessage chatMessageWithId = chatMessage.toBuilder().setId(messageCounter++).build();
         messages.add(chatMessageWithId);
 
-        Util.logChatMessage(chatMessageWithId);
+        String log = Util.logChatMessage(chatMessageWithId);
+        Util.writeLog(log);
         ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
                 .setMessageFromServer(chatMessageWithId)
                 .build();
@@ -123,7 +130,10 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
 
       @Override
       public void onCompleted() {
-        System.out.printf("Username: %s is leaving...", username);
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        String log = String.format("[%s] User: '%s' is leaving...", now, username);
+        System.out.println(log);
+        Util.writeLog(log);
         if (username != null) {
           User user = users.stream().filter(u -> u.getName().equals(username)).findFirst().orElse(null);
           users.remove(user);
@@ -142,9 +152,10 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
             .orElse(null);
     ChatMessageFromServer.Builder messageFromServerBuilder = ChatMessageFromServer.newBuilder();
 
+    Timestamp now = new Timestamp(System.currentTimeMillis());
     if (chatMessage == null) {
-      String messageNotFound = "Message with id '%d' is not found!";
-      String errorMessage = String.format(messageNotFound, messageId);
+      String messageNotFound = "[%s] Message with id '%d' is not found!";
+      String errorMessage = String.format(messageNotFound, now, messageId);
       ChatMessageFromServer messageFromServer = messageFromServerBuilder.setMessageFromServer(ChatMessage.newBuilder().setMessage(errorMessage).build()).build();
       responseObserver.onNext(messageFromServer);
     } else {
@@ -153,8 +164,8 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
               .anyMatch(user -> user.getName().equals(likeMessage.getSender().getName()));
 
       if (isUserLiked) {
-        String messageAlreadyLiked = "Message with id '%d' is already liked by user '%s'!";
-        String errorMessage = String.format(messageAlreadyLiked, messageId, likeMessage.getSender().getName());
+        String messageAlreadyLiked = "[%s] Message with id '%d' is already liked by user '%s'!";
+        String errorMessage = String.format(messageAlreadyLiked, now, messageId, likeMessage.getSender().getName());
         ChatMessageFromServer messageFromServer = messageFromServerBuilder.setMessageFromServer(ChatMessage.newBuilder().setMessage(errorMessage).build()).build();
         responseObserver.onNext(messageFromServer);
       } else {

@@ -14,8 +14,8 @@ enum RegisterResponseCode {
 
 enum MessageType {
   JOIN = 0;
-  LEAVE = 1;
-  CHAT = 2;
+  BROADCAST = 1;
+  DIRECT = 2;
 }
 
 message User {
