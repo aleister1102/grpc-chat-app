@@ -22,13 +22,10 @@ Các service mà server cung cấp:
 - Lấy danh sách các user: `getUsers(google.protobuf.Empty) returns (UserList)`
 - Nhắn tin: `chat(stream ChatMessage) returns (stream ChatMessageFromServer)`
 - Lấy danh sách các tin nhắn: `getMessages(google.protobuf.Empty) returns (ChatMessageList)`
-- Like tin nhắn: `like(LikeMessage) returns (ChatMessageFromServer)`;
-- Lấy tin nhắn trước đó của một user: `getPreviousMessage(User) returns (ChatMessageFromServer)`;
+- Like tin nhắn: `like(LikeMessage) returns (ChatMessageFromServer)`
+- Lấy tin nhắn trước đó của một user: `getPreviousMessage(User) returns (ChatMessageFromServer)`
 
-## Cách chạy chương trình
-
-- Thực thi file `dist/server.exe` để chạy server.
-- Thực thi file `dist/client.exe` để chạy client.
+**File log trong quá trình thực thi sẽ có tên là `chatroom.log`.**
 
 ## Demo
 
