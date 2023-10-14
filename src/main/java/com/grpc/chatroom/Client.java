@@ -87,9 +87,6 @@ public class Client {
 
   private static boolean canUserSendBroadcastMessage(String userName) {
     ChatMessage previousMessage = getPreviousMessage(userName);
-    if (previousMessage == null)
-      return true;
-
     List<User> likeUsers = previousMessage.getLikeUsersList();
     int likeCount = calculateLikeCount(likeUsers, userName);
 
@@ -101,21 +98,15 @@ public class Client {
     ChatMessageFromServer previousMessageFromServer = blockingStub.getPreviousMessage(user);
     ChatMessage previousMessage = previousMessageFromServer.getMessageFromServer();
 
-    if (previousMessage.getMessage().equals(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND)) {
-      Logger logger = new Logger(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND);
-      logger.logWithCurrentTimeStamp();
-      return null;
-    } else {
-      Logger logger = new Logger(String.format("Previous message of %s", Converter.convertChatMessageToString(previousMessage)));
-      logger.logWithCurrentTimeStamp();
-      return previousMessage;
-    }
+    Logger logger = new Logger(String.format("Previous message of %s", Converter.convertChatMessageToString(previousMessage)));
+    logger.logWithCurrentTimeStamp();
+    return previousMessage;
   }
 
   private static int calculateLikeCount(List<User> likeUsers, String userName) {
     int likeCount = 0;
     for (User likeUser : likeUsers) {
-      likeCount += likeUser.getName().equals(userName) ? 1 : 0;
+      likeCount += likeUser.getName().equals(userName) ? 0 : 1;
     }
     return likeCount;
   }

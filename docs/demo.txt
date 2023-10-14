@@ -1,0 +1,18 @@
+- Kết nối 5 client
+- Đăng ký user A
+- Đăng ký user A lần nữa -> lỗi
+- Đăng ký user A khác client -> lỗi
+- Đăng ký user B, C, D, E
+- User E lấy danh sách người dùng
+- Các user đều tham gia phòng chat
+- User A broadcast
+- User A broadcast lần nữa -> lỗi
+- User A like tin nhắn vừa broadcast
+- User A like tin nhắn có id không tồn tại -> lỗi
+- User B like tin nhắn mà A đã broadcast
+- User A broadcast lần nữa -> lỗi
+- User C like tin nhắn mà A đã broadcast
+- User A broadcast
+- User B gửi trực tiếp đến user C
+- User B gửi trực tiếp đến user C lần nữa
+- User D gửi trực tiếp cho user E
