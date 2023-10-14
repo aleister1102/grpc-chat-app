@@ -16,6 +16,7 @@ enum MessageType {
   JOIN = 0;
   BROADCAST = 1;
   DIRECT = 2;
+  REPLY = 3;
 }
 
 message User {
@@ -39,8 +40,8 @@ message ChatMessage {
   User receiver = 3;
   string message = 4;
   repeated User likeUsers = 5;
-  google.protobuf.Timestamp timestamp = 6;
-  MessageType messageType = 7;
+  MessageType messageType = 6;
+  google.protobuf.Timestamp timestamp = 7;
 }
 
 message ChatMessageFromServer {

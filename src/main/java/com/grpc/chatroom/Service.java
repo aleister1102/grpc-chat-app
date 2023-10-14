@@ -3,6 +3,8 @@ package com.grpc.chatroom;
 
 import com.google.protobuf.Empty;
 import com.grpc.chatroom.constants.ErrorMessage;
+import com.grpc.chatroom.utils.Converter;
+import com.grpc.chatroom.utils.Logger;
 import grpc.chatroom.server.*;
 import io.grpc.stub.StreamObserver;
 
@@ -13,50 +15,58 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   private final List<User> users = new ArrayList<>();
   private long userCounter = 1;
+
   private final Map<String, StreamObserver<ChatMessageFromServer>> observers = new ConcurrentHashMap<>();
   private final List<ChatMessage> messages = new LinkedList<>();
   private long messageCounter = 1;
 
+  @Override
+  public void register(User user, StreamObserver<RegisterResponse> responseObserver) {
+    String userName = user.getName();
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    RegisterResponse registerResponse;
+
+    Logger logger = new Logger(String.format("User '%s' is registering...\n", userName));
+    logger.logAndWriteWithTimeStamp(now);
+
+    if (isUsernameExisted(userName)) {
+      registerResponse = buildFailedRegisterResponse(userName);
+    } else {
+      user = user.toBuilder().setId(userCounter++).build();
+      users.add(user);
+
+      registerResponse = buildSucceedRegisterResponse(user);
+    }
+
+    now = new Timestamp(System.currentTimeMillis());
+    logger = new Logger(registerResponse.getMessage());
+    logger.logAndWriteWithTimeStamp(now);
+
+    responseObserver.onNext(registerResponse);
+    responseObserver.onCompleted();
+  }
 
   private boolean isUsernameExisted(String username) {
     return users.stream().anyMatch(user -> user.getName().equals(username));
   }
 
-  @Override
-  public void register(User user, StreamObserver<RegisterResponse> responseObserver) {
-    String username = user.getName();
-    Timestamp now = new Timestamp(System.currentTimeMillis());
-    String log = String.format("[%s] User '%s' is registering...\n", now, username);
-    System.out.printf(log);
-    Util.writeLog(log);
-
-    RegisterResponse.Builder joinResponseBuilder = RegisterResponse.newBuilder();
-    RegisterResponse joinResponse;
-
-    // Check if the username is already existed
-    if (isUsernameExisted(username)) {
-      String failedJoinMessage = String.format("[%s] User '%s' registered failed because the username '%s' is already existed!\n", now, username, username);
-      Util.writeLog(failedJoinMessage);
-      joinResponse = joinResponseBuilder.setResponseCode(RegisterResponseCode.NAME_TAKEN).setMessage(String.format(failedJoinMessage, username)).build();
-    } else {
-      User userWithId = user.toBuilder().setId(userCounter++).build();
-      users.add(userWithId);
-
-      String succeedJoinMessage = String.format("[%s] User '%s' registered successfully!\n", now, username);
-      Util.writeLog(succeedJoinMessage);
-      joinResponse = joinResponseBuilder
-              .setResponseCode(RegisterResponseCode.OK)
-              .setMessage(succeedJoinMessage)
-              .setUser(userWithId)
-              .build();
-    }
-
-    System.out.println("Current user list: ");
-    users.forEach(u -> System.out.println(u.getName()));
-
-    responseObserver.onNext(joinResponse);
-    responseObserver.onCompleted();
+  private RegisterResponse buildFailedRegisterResponse(String userName) {
+    String failedJoinMessage = String.format("User '%s' registered failed because the username is already existed!", userName);
+    return RegisterResponse.newBuilder()
+            .setResponseCode(RegisterResponseCode.NAME_TAKEN)
+            .setMessage(String.format(failedJoinMessage, userName))
+            .build();
   }
+
+  private RegisterResponse buildSucceedRegisterResponse(User user) {
+    String succeedJoinMessage = String.format("User '%s' registered successfully!", user.getName());
+    return RegisterResponse.newBuilder()
+            .setResponseCode(RegisterResponseCode.OK)
+            .setMessage(succeedJoinMessage)
+            .setUser(user)
+            .build();
+  }
+
 
   @Override
   public void getUsers(Empty request, StreamObserver<UserList> responseObserver) {
@@ -82,127 +92,187 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   @Override
   public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessageFromServer> responseObserver) {
     return new StreamObserver<>() {
-      private String username;
+      private String senderName;
 
       @Override
       public void onNext(ChatMessage chatMessage) {
+        chatMessage = chatMessage.toBuilder().setId(messageCounter++).build();
+        String receiverName = chatMessage.getReceiver().getName();
         MessageType messageType = chatMessage.getMessageType();
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+
+        // Save user's observer if message type is JOIN
         if (messageType.equals(MessageType.JOIN)) {
-          username = chatMessage.getSender().getName();
-          observers.putIfAbsent(username, responseObserver);
+          senderName = chatMessage.getSender().getName();
+          observers.putIfAbsent(senderName, responseObserver);
         }
 
-        ChatMessage chatMessageWithId = chatMessage.toBuilder().setId(messageCounter++).build();
-        messages.add(chatMessageWithId);
+        // Save message
+        messages.add(chatMessage);
+        Logger logger = new Logger(Converter.convertChatMessageToString(chatMessage));
+        logger.logAndWriteWithTimeStamp(now);
 
-        String log = Util.logChatMessage(chatMessageWithId);
-        Util.writeLog(log);
-        ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
-                .setMessageFromServer(chatMessageWithId)
-                .build();
-
-        User receiver = chatMessageWithId.getReceiver();
+        // Send message
+        ChatMessageFromServer chatMessageFromServer = buildChatMessageFromServer(chatMessage);
         for (var observer : observers.entrySet()) {
           String observerName = observer.getKey();
           StreamObserver<ChatMessageFromServer> streamObserver = observer.getValue();
 
           // Broadcast the message
-          if (!chatMessageWithId.hasReceiver()) {
-            streamObserver.onNext(messageFromServer);
+          if (!chatMessage.hasReceiver()) {
+            streamObserver.onNext(chatMessageFromServer);
           } else {
-            // Send the message to the receiver
-            if (receiver.getName().equals(observerName) || username.equals(observerName)) {
-              streamObserver.onNext(messageFromServer);
+            // Send the message to the receiver and the sender
+            if (receiverName.equals(observerName) || senderName.equals(observerName)) {
+              streamObserver.onNext(chatMessageFromServer);
             }
           }
         }
       }
 
+      private ChatMessageFromServer buildChatMessageFromServer(ChatMessage chatMessage) {
+        return ChatMessageFromServer.newBuilder()
+                .setMessageFromServer(chatMessage)
+                .build();
+      }
+
       @Override
       public void onError(Throwable t) {
-        if (username != null) {
-          User user = users.stream().filter(u -> u.getName().equals(username)).findFirst().orElse(null);
-          users.remove(user);
-          observers.remove(username);
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        Logger logger = new Logger(String.format("User: '%s' has error: %s", senderName, t.getMessage()));
+        logger.logAndWriteWithTimeStamp(now);
 
-        }
+        removeCurrentSender();
       }
 
       @Override
       public void onCompleted() {
         Timestamp now = new Timestamp(System.currentTimeMillis());
-        String log = String.format("[%s] User: '%s' is leaving...", now, username);
-        System.out.println(log);
-        Util.writeLog(log);
-        if (username != null) {
-          User user = users.stream().filter(u -> u.getName().equals(username)).findFirst().orElse(null);
-          users.remove(user);
-          observers.remove(username);
+        Logger logger = new Logger(String.format("User: '%s' is leaving...", senderName));
+        logger.logAndWriteWithTimeStamp(now);
+
+        removeCurrentSender();
+      }
+
+      private void removeCurrentSender() {
+        if (senderName != null) {
+          User currentSender = users.stream().filter(u -> u.getName().equals(senderName)).findFirst().orElse(null);
+          users.remove(currentSender);
+          observers.remove(senderName);
         }
       }
     };
   }
 
   @Override
-  public void like(LikeMessage likeMessage, StreamObserver<ChatMessageFromServer> responseObserver) {
-    long messageId = likeMessage.getMessageId();
-    ChatMessage chatMessage = messages.stream()
-            .filter(message -> message.getId() == messageId)
-            .findFirst()
-            .orElse(null);
-    ChatMessageFromServer.Builder messageFromServerBuilder = ChatMessageFromServer.newBuilder();
-
+  public void like(LikeMessage requestMessage, StreamObserver<ChatMessageFromServer> responseObserver) {
+    long messageId = requestMessage.getMessageId();
+    User sender = requestMessage.getSender();
+    String senderName = sender.getName();
+    ChatMessage likingMessage = findMessageById(messageId);
     Timestamp now = new Timestamp(System.currentTimeMillis());
-    if (chatMessage == null) {
-      String messageNotFound = "[%s] Message with id '%d' is not found!";
-      String errorMessage = String.format(messageNotFound, now, messageId);
-      ChatMessageFromServer messageFromServer = messageFromServerBuilder.setMessageFromServer(ChatMessage.newBuilder().setMessage(errorMessage).build()).build();
-      responseObserver.onNext(messageFromServer);
+
+    Logger logger = new Logger(Converter.convertLikeMessageToString(requestMessage));
+    logger.logAndWriteWithTimeStamp(now);
+
+    ChatMessageFromServer messageFromServer;
+    String errorMessage = "";
+
+    // Check whether the message is found
+    if (likingMessage == null) {
+      errorMessage = String.format("Message with id '%d' is not found!", messageId);
+      messageFromServer = buildChatMessageFromServer(errorMessage);
     } else {
-      // Check whether the user has liked the message
-      boolean isUserLiked = chatMessage.getLikeUsersList().stream()
-              .anyMatch(user -> user.getName().equals(likeMessage.getSender().getName()));
-
-      if (isUserLiked) {
-        String messageAlreadyLiked = "[%s] Message with id '%d' is already liked by user '%s'!";
-        String errorMessage = String.format(messageAlreadyLiked, now, messageId, likeMessage.getSender().getName());
-        ChatMessageFromServer messageFromServer = messageFromServerBuilder.setMessageFromServer(ChatMessage.newBuilder().setMessage(errorMessage).build()).build();
-        responseObserver.onNext(messageFromServer);
+      // Check whether the sender has liked the message
+      if (isAlreadyLikedByUser(likingMessage, sender)) {
+        errorMessage = String.format("Message with id '%d' is already liked by user '%s'!", messageId, senderName);
+        messageFromServer = buildChatMessageFromServer(errorMessage);
       } else {
-        ChatMessage likedMessage = chatMessage.toBuilder()
-                .addLikeUsers(likeMessage.getSender())
-                .build();
+        // Replace the liking message with the liked message
+        ChatMessage likedMessage = buildLikedMessage(likingMessage, sender);
         messages.set((int) messageId - 1, likedMessage);
-        ChatMessageFromServer messageFromServer = messageFromServerBuilder
-                .setMessageFromServer(likedMessage)
-                .build();
 
-        // Broadcast the like message
+        // Broadcast the liked message
+        messageFromServer = buildChatMessageFromServer(requestMessage);
         for (var observer : observers.entrySet()) {
+          if (observer.getKey().equals(senderName)) continue;
           StreamObserver<ChatMessageFromServer> streamObserver = observer.getValue();
           streamObserver.onNext(messageFromServer);
         }
-        responseObserver.onNext(messageFromServer);
       }
     }
-    responseObserver.onCompleted();
-  }
 
-  @Override
-  public void getPreviousMessage(User request, StreamObserver<ChatMessageFromServer> responseObserver) {
-    String username = request.getName();
-    ChatMessage previousMessage = messages.stream()
-            .filter(message -> message.getSender().getName().equals(username))
-            .reduce((first, second) -> second)
-            .orElse(null);
-
-    ChatMessage previousMessageNotFound = ChatMessage.newBuilder().setMessage(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND).build();
-
-    ChatMessageFromServer messageFromServer = ChatMessageFromServer.newBuilder()
-            .setMessageFromServer(previousMessage != null ? previousMessage : previousMessageNotFound)
-            .build();
+    if (!errorMessage.isEmpty()) {
+      logger = new Logger(errorMessage);
+      logger.logAndWriteWithTimeStamp(now);
+    }
 
     responseObserver.onNext(messageFromServer);
     responseObserver.onCompleted();
+  }
+
+  private ChatMessage findMessageById(Long messageId) {
+    return messages.stream()
+            .filter(message -> message.getId() == messageId)
+            .findFirst()
+            .orElse(null);
+  }
+
+  private ChatMessageFromServer buildChatMessageFromServer(String message) {
+    return ChatMessageFromServer.newBuilder()
+            .setMessageFromServer(buildChatMessage(message))
+            .build();
+  }
+
+  private ChatMessageFromServer buildChatMessageFromServer(ChatMessage chatMessage) {
+    return ChatMessageFromServer.newBuilder()
+            .setMessageFromServer(chatMessage)
+            .build();
+  }
+
+  private ChatMessageFromServer buildChatMessageFromServer(LikeMessage likeMessage) {
+    String message = Converter.convertLikeMessageToString(likeMessage);
+    return ChatMessageFromServer.newBuilder()
+            .setMessageFromServer(buildChatMessage(message))
+            .build();
+  }
+
+  private ChatMessage buildChatMessage(String message) {
+    return ChatMessage.newBuilder()
+            .setMessage(message)
+            .setMessageType(MessageType.REPLY)
+            .build();
+  }
+
+  private boolean isAlreadyLikedByUser(ChatMessage chatMessage, User user) {
+    return chatMessage.getLikeUsersList().stream()
+            .anyMatch(likeUser -> likeUser.getName().equals(user.getName()));
+  }
+
+  private ChatMessage buildLikedMessage(ChatMessage likingMessage, User sender) {
+    return likingMessage.toBuilder()
+            .addLikeUsers(sender)
+            .build();
+  }
+
+  @Override
+  public void getPreviousMessage(User sender, StreamObserver<ChatMessageFromServer> responseObserver) {
+    String senderName = sender.getName();
+    ChatMessage previousMessage = findPreviousMessageOfSenderName(senderName);
+    ChatMessage errorMessage = ChatMessage.newBuilder().setMessage(ErrorMessage.PREVIOUS_MESSAGE_NOT_FOUND).build();
+
+    Optional<ChatMessage> optionalMessage = Optional.ofNullable(previousMessage);
+    ChatMessage returnMessage = optionalMessage.orElse(errorMessage);
+    ChatMessageFromServer messageFromServer = buildChatMessageFromServer(returnMessage);
+
+    responseObserver.onNext(messageFromServer);
+    responseObserver.onCompleted();
+  }
+
+  public ChatMessage findPreviousMessageOfSenderName(String senderName) {
+    return messages.stream()
+            .filter(message -> message.getSender().getName().equals(senderName))
+            .reduce((first, second) -> second)
+            .orElse(null);
   }
 }
