@@ -106,8 +106,7 @@ public class Client {
       logger.logWithCurrentTimeStamp();
       return null;
     } else {
-
-      Logger logger = new Logger(String.format("Previous message of '%s':", userName));
+      Logger logger = new Logger(String.format("Previous message of %s", Converter.convertChatMessageToString(previousMessage)));
       logger.logWithCurrentTimeStamp();
       return previousMessage;
     }

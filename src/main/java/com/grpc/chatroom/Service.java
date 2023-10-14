@@ -26,7 +26,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
     Timestamp now = new Timestamp(System.currentTimeMillis());
     RegisterResponse registerResponse;
 
-    Logger logger = new Logger(String.format("User '%s' is registering...\n", userName));
+    Logger logger = new Logger(String.format("User '%s' is registering...", userName));
     logger.logAndWriteWithTimeStamp(now);
 
     if (isUsernameExisted(userName)) {

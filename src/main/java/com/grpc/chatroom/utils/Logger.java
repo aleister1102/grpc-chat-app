@@ -13,9 +13,10 @@ public class Logger {
 
   public String toStringWithTimestamp(Timestamp timestamp) {
     return "[" +
-            timestamp.toString() +
+            timestamp.toLocalDateTime() +
             "] " +
-            this.message;
+            this.message +
+            "\n";
   }
 
   public void logWithCurrentTimeStamp() {
@@ -31,13 +32,19 @@ public class Logger {
     System.out.println(this.message);
   }
 
-  public void logAndWriteWithTimeStamp(Timestamp timestamp) {
-    this.logWithTimeStamp(timestamp);
-
-    if (!this.message.isEmpty())
-      this.writeLog(this.toStringWithTimestamp(timestamp));
+  public void log(String logMessage) {
+    System.out.println(logMessage);
   }
 
+  public void logAndWriteWithTimeStamp(Timestamp timestamp) {
+    if (!this.message.isEmpty()) {
+      String logMessage = this.toStringWithTimestamp(timestamp);
+      this.log(logMessage);
+      this.writeLog(logMessage);
+    }
+  }
+
+  // TODO: fix redundant line break in log file
   public void writeLog(String log) {
     try {
       String logFileName = "chatroom.log";
