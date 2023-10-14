@@ -93,6 +93,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
   public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessageFromServer> responseObserver) {
     return new StreamObserver<>() {
       private String senderName;
+      private Long senderId;
 
       @Override
       public void onNext(ChatMessage chatMessage) {
@@ -104,6 +105,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
         // Save user's observer if message type is JOIN
         if (messageType.equals(MessageType.JOIN)) {
           senderName = chatMessage.getSender().getName();
+          senderId = chatMessage.getSender().getId();
           observers.putIfAbsent(senderName, responseObserver);
         }
 
@@ -139,7 +141,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
       @Override
       public void onError(Throwable t) {
         Timestamp now = new Timestamp(System.currentTimeMillis());
-        Logger logger = new Logger(String.format("User: '%s' has error: %s", senderName, t.getMessage()));
+        Logger logger = new Logger(String.format("User: %s - %d has error: %s", senderName, senderId, t.getMessage()));
         logger.logAndWriteWithTimeStamp(now);
 
         removeCurrentSender();
@@ -148,7 +150,7 @@ public class Service extends ChatServiceGrpc.ChatServiceImplBase {
       @Override
       public void onCompleted() {
         Timestamp now = new Timestamp(System.currentTimeMillis());
-        Logger logger = new Logger(String.format("User: '%s' is leaving...", senderName));
+        Logger logger = new Logger(String.format("User: %s - %d is leaving...", senderName, senderId));
         logger.logAndWriteWithTimeStamp(now);
 
         removeCurrentSender();

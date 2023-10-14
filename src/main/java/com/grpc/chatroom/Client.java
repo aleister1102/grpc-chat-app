@@ -126,6 +126,12 @@ public class Client {
   }
 
   public static void sendMessageDirectly(User sender, String receiverName, String message) {
+    if (!isReceiverExist(receiverName)) {
+      Logger logger = new Logger(ErrorMessage.RECEIVER_NOT_FOUND);
+      logger.log();
+      return;
+    }
+
     User receiver = User.newBuilder().setName(receiverName).build();
     Timestamp timestamp = Timestamp.newBuilder().setSeconds(System.currentTimeMillis()).build();
     ChatMessage chatMessage = ChatMessage.newBuilder()
@@ -136,6 +142,13 @@ public class Client {
             .setMessageType(MessageType.DIRECT)
             .build();
     Client.streamToServer.onNext(chatMessage);
+  }
+
+  public static boolean isReceiverExist(String receiverName) {
+    UserList userList = getUserList();
+    List<User> users = userList.getUsersList();
+
+    return users.stream().anyMatch(user -> user.getName().equals(receiverName));
   }
 
   public static ChatMessageList getMessageList() {
